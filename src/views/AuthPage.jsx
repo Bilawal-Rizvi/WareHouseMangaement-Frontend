@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { authService } from "../services/api";
 
-const AuthPage = ({ onAuthSuccess }) => {
+const AuthPage = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -10,41 +10,33 @@ const AuthPage = ({ onAuthSuccess }) => {
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  try {
-    if (isLogin) {
-      // Login flow
-      const data = await authService.login(email, password);
-      localStorage.setItem("token", data.token);
-         window.location.reload();
-      onAuthSuccess(); // Go to dashboard
-   
-    } else {
-      // Signup flow
-      await authService.signup(name, email, password);
-      alert("Signup successful! Please login.");
-      // Switch to login form instead of logging in automatically
-      setIsLogin(true);
-      setName("");
-      setPassword("");
-      setEmail("");
+    try {
+      if (isLogin) {
+        await authService.login(email, password);
+        onLoginSuccess?.(); // tells App.jsx user is authenticated
+      } else {
+        await authService.signup(name, email, password);
+        alert("Signup successful! Please login.");
+        setIsLogin(true);
+        setName("");
+        setPassword("");
+        setEmail("");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Authentication failed");
     }
-  } catch (err) {
-    setError(err.response?.data?.message || "Authentication failed");
-  }
-
-  setLoading(false);
-};
-
+    setLoading(false);
+  };
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6 text-center">{isLogin ? "Login" : "Sign Up"}</h2>
-
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
         {!isLogin && (
@@ -57,6 +49,7 @@ const AuthPage = ({ onAuthSuccess }) => {
             required
           />
         )}
+
         <input
           type="email"
           placeholder="Email"
@@ -65,6 +58,7 @@ const AuthPage = ({ onAuthSuccess }) => {
           className="w-full mb-4 p-3 border rounded"
           required
         />
+
         <input
           type="password"
           placeholder="Password"
