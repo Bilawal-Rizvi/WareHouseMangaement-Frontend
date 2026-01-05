@@ -19,7 +19,7 @@ export const SectionView = ({ title, model }) => {
     setLoading(true);
     try {
       const result = await apiService.getAll(model.tableName);
-      console.log(`[${model.tableName}] API response:`, result.data);
+      // console.log(`[${model.tableName}] API response:`, result.data);
 
       // Handle array directly or wrapped in { data: [...] }
       const fetchedData = Array.isArray(result.data)
