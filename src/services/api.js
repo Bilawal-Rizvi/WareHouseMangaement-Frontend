@@ -2,72 +2,92 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
-// Create axios instance
-const apiInstance = axios.create({
-  baseURL: API_BASE_URL,
-});
+const apiInstance = axios.create({ baseURL: API_BASE_URL });
 
-// Helper: set or remove token
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Set token in headers
 export const setAuthToken = (token) => {
   if (token) {
     apiInstance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    localStorage.setItem("token", token); // persist token
+    localStorage.setItem("accessToken", token);
   } else {
     delete apiInstance.defaults.headers.common["Authorization"];
-    localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
   }
 };
 
-// Helper: get token from localStorage
-const getToken = () => localStorage.getItem("token");
+apiInstance.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    const originalRequest = err.config;
+    if (err.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers["Authorization"] = "Bearer " + token;
+          return axios(originalRequest);
+        });
+      }
 
-// Centralized request handler
-const request = async (method, url, data = null, params = null) => {
-  try {
-    const token = getToken();
-    if (token) setAuthToken(token);
+      originalRequest._retry = true;
+      isRefreshing = true;
 
-    const response = await apiInstance({
-      method,
-      url,
-      data,
-      params,
-    });
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        isRefreshing = false;
+        return Promise.reject(err);
+      }
 
-    return response.data;
-  } catch (error) {
-    // If token expired or unauthorized, remove it
-    if (error.response?.status === 401) {
-      setAuthToken(null);
+      try {
+        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh-token`, { token: refreshToken });
+        setAuthToken(data.accessToken);
+        originalRequest.headers["Authorization"] = "Bearer " + data.accessToken;
+        processQueue(null, data.accessToken);
+        return axios(originalRequest);
+      } catch (err) {
+        processQueue(err, null);
+        setAuthToken(null);
+        localStorage.removeItem("refreshToken");
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
+      }
     }
-    console.error("API error:", error.response?.data || error.message);
-    throw error;
+    return Promise.reject(err);
   }
-};
+);
 
-// Generic API service
 export const apiService = {
-  getAll: (tableName) => request("get", `/${tableName}`),
-  getById: (tableName, id) => request("get", `/${tableName}/${id}`),
-  create: (tableName, data) => request("post", `/${tableName}`, data),
-  update: (tableName, id, data) => request("put", `/${tableName}/${id}`, data),
-  delete: (tableName, id) => request("delete", `/${tableName}/${id}`),
-  search: (tableName, searchTerm) =>
-    request("get", `/${tableName}/search`, null, { q: searchTerm }),
+  getAll: (tableName) => apiInstance.get(`/${tableName}`),
+  create: (tableName, data) => apiInstance.post(`/${tableName}`, data),
+  update: (tableName, id, data) => apiInstance.put(`/${tableName}/${id}`, data),
+  delete: (tableName, id) => apiInstance.delete(`/${tableName}/${id}`),
 };
 
-// Auth service
 export const authService = {
   login: async (email, password) => {
-    const data = await request("post", "/auth/login", { email, password });
-    setAuthToken(data.token); // set token for all future requests
+    const { data } = await apiInstance.post("/auth/login", { email, password });
+    setAuthToken(data.accessToken);
+    localStorage.setItem("refreshToken", data.refreshToken);
     return data;
   },
-
-  signup: async (name, email, password) => {
-    return await request("post", "/auth/register", { name, email, password });
-    // do NOT auto-login after signup
+  signup: async (name, email, password) => await apiInstance.post("/auth/register", { name, email, password }),
+  logout: () => {
+    setAuthToken(null);
+    localStorage.removeItem("refreshToken");
   },
-
-  logout: () => setAuthToken(null), // clear token
 };
