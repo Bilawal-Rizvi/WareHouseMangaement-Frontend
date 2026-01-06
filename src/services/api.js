@@ -1,9 +1,16 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+// ================= Base URL =================
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+if (!API_BASE_URL) {
+  throw new Error("❌ VITE_API_BASE_URL is not defined");
+}
 
 // ================= Axios Instance =================
-const apiInstance = axios.create({ baseURL: API_BASE_URL });
+const apiInstance = axios.create({
+  baseURL: API_BASE_URL,
+});
 
 // ================= Token Refresh Queue =================
 let isRefreshing = false;
@@ -17,7 +24,7 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// ================= Set Access Token =================
+// ================= Set / Remove Access Token =================
 export const setAuthToken = (token) => {
   if (token) {
     apiInstance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -33,6 +40,7 @@ apiInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -54,12 +62,17 @@ apiInstance.interceptors.response.use(
       }
 
       try {
-        const { data } = await apiInstance.post("/auth/refresh-token", { token: refreshToken });
+        const { data } = await apiInstance.post(
+          "/auth/refresh-token",
+          { token: refreshToken }
+        );
+
         const newAccessToken = data.accessToken;
         setAuthToken(newAccessToken);
-
-        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         processQueue(null, newAccessToken);
+
+        originalRequest.headers["Authorization"] =
+          `Bearer ${newAccessToken}`;
 
         return apiInstance(originalRequest);
       } catch (err) {
@@ -71,6 +84,7 @@ apiInstance.interceptors.response.use(
         isRefreshing = false;
       }
     }
+
     return Promise.reject(error);
   }
 );
@@ -80,25 +94,35 @@ export const apiService = {
   getAll: (tableName) => apiInstance.get(`/${tableName}`),
   getById: (tableName, id) => apiInstance.get(`/${tableName}/${id}`),
   create: (tableName, data) => apiInstance.post(`/${tableName}`, data),
-  update: (tableName, id, data) => apiInstance.put(`/${tableName}/${id}`, data),
-  delete: (tableName, id) => apiInstance.delete(`/${tableName}/${id}`),
-  search: (tableName, query) => apiInstance.get(`/${tableName}/search`, { params: { q: query } }),
+  update: (tableName, id, data) =>
+    apiInstance.put(`/${tableName}/${id}`, data),
+  delete: (tableName, id) =>
+    apiInstance.delete(`/${tableName}/${id}`),
+  search: (tableName, query) =>
+    apiInstance.get(`/${tableName}/search`, {
+      params: { q: query },
+    }),
 };
 
 // ================= Auth Service =================
 export const authService = {
   login: async (email, password) => {
-    const { data } = await apiInstance.post("/auth/login", { email, password });
+    const { data } = await apiInstance.post(
+      "/auth/login",
+      { email, password }
+    );
 
-    // Save tokens
-    setAuthToken(data.accessToken); // for axios headers & localStorage
+    setAuthToken(data.accessToken);
     localStorage.setItem("refreshToken", data.refreshToken);
 
     return data.user;
   },
 
   signup: async (name, email, password) => {
-    const { data } = await apiInstance.post("/auth/register", { name, email, password });
+    const { data } = await apiInstance.post(
+      "/auth/register",
+      { name, email, password }
+    );
     return data;
   },
 
@@ -108,6 +132,10 @@ export const authService = {
   },
 };
 
-// ================= Initialize existing token =================
+// ================= Init Existing Token =================
 const existingToken = localStorage.getItem("accessToken");
-if (existingToken) setAuthToken(existingToken);
+if (existingToken) {
+  setAuthToken(existingToken);
+}
+
+export default apiInstance;
