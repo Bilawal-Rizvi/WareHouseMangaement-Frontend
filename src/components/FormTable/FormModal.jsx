@@ -56,8 +56,8 @@ export const FormModal = ({ isOpen, onClose, fields, onSubmit, editData, loading
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto border-2 border-gray-200">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
           <h2 className="text-2xl font-bold text-gray-800">
@@ -73,7 +73,7 @@ export const FormModal = ({ isOpen, onClose, fields, onSubmit, editData, loading
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {fields.map(field => (
               <div 
@@ -145,14 +145,13 @@ export const FormModal = ({ isOpen, onClose, fields, onSubmit, editData, loading
           {/* Buttons */}
           <div className="flex gap-3 mt-6">
             <button
-              type="submit"
+              onClick={handleSubmit}
               disabled={loading}
               className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-300 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? "Saving..." : editData?._id ? "Update" : "Add"}
             </button>
             <button
-              type="button"
               onClick={onClose}
               disabled={loading}
               className="flex-1 bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:cursor-not-allowed"
@@ -160,9 +159,8 @@ export const FormModal = ({ isOpen, onClose, fields, onSubmit, editData, loading
               Cancel
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
-
