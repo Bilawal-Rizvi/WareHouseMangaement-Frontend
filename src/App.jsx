@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { Header } from "./components/Header/Header";
 import { SectionView } from "./views/SectionView/SectionView";
@@ -35,7 +35,7 @@ const App = () => {
 
   // 📊 Authenticated dashboard with routing
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="flex h-screen bg-gray-100">
         <Sidebar
           isSidebarOpen={isSidebarOpen}
@@ -80,7 +80,7 @@ const App = () => {
           </main>
         </div>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 
